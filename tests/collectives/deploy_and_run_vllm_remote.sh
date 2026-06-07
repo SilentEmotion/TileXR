@@ -14,6 +14,8 @@ REMOTE_CMAKE_CCE_COMPILER="${TILEXR_VLLM_REMOTE_CMAKE_CCE_COMPILER:-}"
 REMOTE_PYTHON="${TILEXR_VLLM_REMOTE_PYTHON:-}"
 REMOTE_CONDA_ENV="${TILEXR_VLLM_REMOTE_CONDA_ENV:-}"
 REMOTE_CONDA_SH="${TILEXR_VLLM_REMOTE_CONDA_SH:-/home/miniconda3/etc/profile.d/conda.sh}"
+REMOTE_VLLM_SOURCE="${TILEXR_VLLM_REMOTE_VLLM_SOURCE:-}"
+REMOTE_VLLM_ASCEND_SOURCE="${TILEXR_VLLM_REMOTE_VLLM_ASCEND_SOURCE:-}"
 
 branch="$(git -C "${TILEXR_ROOT}" rev-parse --abbrev-ref HEAD)"
 commit="$(git -C "${TILEXR_ROOT}" rev-parse HEAD)"
@@ -31,6 +33,12 @@ if [[ -n "${REMOTE_PYTHON}" ]]; then
 fi
 if [[ -n "${REMOTE_CONDA_ENV}" ]]; then
   echo "  remote conda env: ${REMOTE_CONDA_ENV}"
+fi
+if [[ -n "${REMOTE_VLLM_SOURCE}" ]]; then
+  echo "  remote vllm source: ${REMOTE_VLLM_SOURCE}"
+fi
+if [[ -n "${REMOTE_VLLM_ASCEND_SOURCE}" ]]; then
+  echo "  remote vllm-ascend source: ${REMOTE_VLLM_ASCEND_SOURCE}"
 fi
 
 git clone --no-hardlinks --no-checkout "${TILEXR_ROOT}" "${staging_repo}"
@@ -91,6 +99,8 @@ remote_cmake_cce_compiler=$(printf '%q' "${REMOTE_CMAKE_CCE_COMPILER}")
 remote_python=$(printf '%q' "${REMOTE_PYTHON}")
 remote_conda_env=$(printf '%q' "${REMOTE_CONDA_ENV}")
 remote_conda_sh=$(printf '%q' "${REMOTE_CONDA_SH}")
+remote_vllm_source=$(printf '%q' "${REMOTE_VLLM_SOURCE}")
+remote_vllm_ascend_source=$(printf '%q' "${REMOTE_VLLM_ASCEND_SOURCE}")
 cd $(printf '%q' "${REMOTE_REPO}")
 select_remote_python() {
   selected_python="python3"
@@ -138,15 +148,43 @@ PY
   "\${selected_python}" -m pip show vllm-ascend || true
 }
 
+build_vllm_probe_pythonpath() {
+  local pythonpath_entries=("integrations/vllm_ascend")
+  if [[ -n "\${remote_vllm_source}" ]]; then
+    if [[ -d "\${remote_vllm_source}" ]]; then
+      pythonpath_entries+=("\${remote_vllm_source}")
+    else
+      echo "WARN: TILEXR_VLLM_REMOTE_VLLM_SOURCE does not exist: \${remote_vllm_source}"
+    fi
+  fi
+  if [[ -n "\${remote_vllm_ascend_source}" ]]; then
+    if [[ -d "\${remote_vllm_ascend_source}" ]]; then
+      pythonpath_entries+=("\${remote_vllm_ascend_source}")
+    else
+      echo "WARN: TILEXR_VLLM_REMOTE_VLLM_ASCEND_SOURCE does not exist: \${remote_vllm_ascend_source}"
+    fi
+  fi
+  local IFS=:
+  vllm_probe_pythonpath="\${pythonpath_entries[*]}"
+}
+
 probe_vllm_environment() {
-  VLLM_ASCEND_TILEXR_COLLECTIVES=1 PYTHONPATH="integrations/vllm_ascend:\${PYTHONPATH:-}" "\${selected_python}" - <<'PY'
+  build_vllm_probe_pythonpath
+  VLLM_ASCEND_TILEXR_COLLECTIVES=1 PYTHONPATH="\${vllm_probe_pythonpath}:\${PYTHONPATH:-}" "\${selected_python}" - <<'PY'
 import importlib.util
 import os
+import subprocess
+import sys
 
 print("VLLM_ASCEND_TILEXR_COLLECTIVES:", os.environ.get("VLLM_ASCEND_TILEXR_COLLECTIVES", "unset"))
 for mod in ["vllm", "vllm_ascend"]:
     spec = importlib.util.find_spec(mod)
-    print(f"{mod}: {spec.origin if spec else 'MISSING'}")
+    if spec is None:
+        print(f"{mod}: MISSING")
+    else:
+        locations = list(spec.submodule_search_locations or [])
+        origin = spec.origin if spec.origin else ",".join(locations)
+        print(f"{mod}: {origin}")
 try:
     from tilexr_collectives.vllm_adapter import TileXRVllmCollectivesAdapter, enabled
 
@@ -156,6 +194,51 @@ try:
     print("tilexr vllm adapter fallback without tensor:", adapter.should_fallback())
 except Exception as exc:
     print(f"tilexr vllm adapter probe: {type(exc).__name__}: {exc}")
+
+
+def run_vllm_import_probe(module: str, *, disable_backend_autoload: bool = False) -> None:
+    env = os.environ.copy()
+    if disable_backend_autoload:
+        env["TORCH_DEVICE_BACKEND_AUTOLOAD"] = "0"
+    child = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import importlib;"
+                "module = importlib.import_module(%r);"
+                "print(getattr(module, '__file__', None))"
+            )
+            % module,
+        ],
+        env=env,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        timeout=30,
+    )
+    mode = "no_backend_autoload" if disable_backend_autoload else "default"
+    print(f"vllm import probe {mode} {module}: rc={child.returncode}")
+    if child.stdout:
+        print(child.stdout.rstrip())
+    if child.stderr:
+        print(child.stderr.rstrip())
+
+
+for module_name in [
+    "vllm",
+    "vllm_ascend",
+    "vllm.distributed.device_communicators.base_device_communicator",
+    "vllm_ascend.distributed.device_communicators.npu_communicator",
+]:
+    try:
+        run_vllm_import_probe(module_name)
+    except Exception as exc:
+        print(f"vllm import probe default {module_name}: {type(exc).__name__}: {exc}")
+    try:
+        run_vllm_import_probe(module_name, disable_backend_autoload=True)
+    except Exception as exc:
+        print(f"vllm import probe no_backend_autoload {module_name}: {type(exc).__name__}: {exc}")
 PY
 }
 

@@ -176,6 +176,21 @@ bash tests/collectives/deploy_and_run_vllm_remote.sh
 Set `TILEXR_VLLM_REMOTE_CONDA_SH` when the remote conda activation script is not available at
 `/home/miniconda3/etc/profile.d/conda.sh`.
 
+If vLLM and vllm-ascend are available as source trees rather than installed packages, pass their remote source
+roots to make the environment probe add them to `PYTHONPATH`:
+
+```bash
+TILEXR_VLLM_REMOTE_VLLM_SOURCE=/path/to/remote/vllm \
+TILEXR_VLLM_REMOTE_VLLM_ASCEND_SOURCE=/path/to/remote/vllm-ascend \
+bash tests/collectives/deploy_and_run_vllm_remote.sh
+```
+
+The probe imports vLLM modules in child Python processes, including
+`vllm.distributed.device_communicators.base_device_communicator` and
+`vllm_ascend.distributed.device_communicators.npu_communicator`, so an import crash or missing dependency is
+reported without aborting the TileXR shim validation. This is diagnostic only: the probe can show that source trees
+are visible and why communicator import fails, but it does not prove vllm-ascend inference.
+
 The script syncs the current TileXR commit, initializes submodules from local worktrees, dumps the NPU/CANN/Python
 environment, probes whether `vllm` and `vllm_ascend` are importable, builds `tile-comm` and
 `tilexr-collectives`, runs the standalone 2-rank AllGather correctness check, and runs Python torch-npu shim smoke
@@ -208,6 +223,8 @@ PASS TileXR vllm collectives smoke rank_size=2 op=broadcast dtype=fp16
 ```
 
 If `torch` or `torch-npu` is missing in the selected Python environment, the preflight fails before the multi-rank
-shim smoke. Missing `vllm` or `vllm-ascend` is recorded in the environment dump but does not fail this shim phase;
-the PR is not complete until vllm-ascend inference validation is run or the remaining environment blocker is resolved
-and documented.
+shim smoke. Missing or non-importable `vllm` / `vllm-ascend` is recorded in the environment dump and isolated import
+probe but does not fail this shim phase. On the current `blue` `tt4` environment, the source-tree probe records
+`libhccl.so` missing during default vLLM import and `zmq` missing when `TORCH_DEVICE_BACKEND_AUTOLOAD=0` is used;
+the available source trees also declare newer torch requirements than `tt4` provides. The PR is not complete until
+vllm-ascend inference validation is run or the remaining environment blocker is resolved and documented.

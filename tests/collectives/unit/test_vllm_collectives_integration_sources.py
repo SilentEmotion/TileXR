@@ -157,6 +157,21 @@ def test_remote_script_supports_selected_python_environment() -> None:
     assert "python3 -m pip show torch-npu" not in source
 
 
+def test_remote_script_can_probe_vllm_source_trees_without_crashing() -> None:
+    source = read_rel("tests/collectives/deploy_and_run_vllm_remote.sh")
+    for token in [
+        "TILEXR_VLLM_REMOTE_VLLM_SOURCE",
+        "TILEXR_VLLM_REMOTE_VLLM_ASCEND_SOURCE",
+        "build_vllm_probe_pythonpath",
+        "run_vllm_import_probe",
+        "subprocess.run",
+        "TORCH_DEVICE_BACKEND_AUTOLOAD",
+        "vllm.distributed.device_communicators.base_device_communicator",
+        "vllm_ascend.distributed.device_communicators.npu_communicator",
+    ]:
+        assert token in source
+
+
 def test_smoke_launcher_supports_python_override() -> None:
     source = read_rel("integrations/vllm_ascend/run_tilexr_collectives_smoke.sh")
     for token in [
@@ -187,10 +202,14 @@ def test_phase3_docs_describe_feature_flag_and_boundaries() -> None:
     readme = read_rel("tests/collectives/README.md")
     for token in [
         "VLLM_ASCEND_TILEXR_COLLECTIVES=1",
+        "TILEXR_VLLM_REMOTE_VLLM_SOURCE",
+        "TILEXR_VLLM_REMOTE_VLLM_ASCEND_SOURCE",
         "allreduce",
         "reducescatter",
         "broadcast",
         "fallback",
+        "libhccl.so",
+        "zmq",
         "vllm-ascend inference",
     ]:
         assert token in readme
@@ -206,6 +225,7 @@ def main() -> None:
     test_vllm_adapter_normalizes_all_to_all_dims_before_fallback()
     test_remote_script_is_isolated_and_logs_environment()
     test_remote_script_supports_selected_python_environment()
+    test_remote_script_can_probe_vllm_source_trees_without_crashing()
     test_smoke_launcher_supports_python_override()
     test_phase3_smoke_covers_core_collectives()
     test_phase3_docs_describe_feature_flag_and_boundaries()
