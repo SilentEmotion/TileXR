@@ -93,6 +93,8 @@ def test_vllm_adapter_is_opt_in_and_import_lightweight() -> None:
         "def all_gather(",
         "def reduce_scatter(",
         "def all_to_all(",
+        "def broadcast(",
+        "root=src",
         "def should_fallback(",
     ]:
         assert token in source

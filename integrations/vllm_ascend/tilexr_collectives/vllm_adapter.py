@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 
-from .torch_collectives import all_gather, all_reduce, all_to_all, reduce_scatter
+from .torch_collectives import all_gather, all_reduce, all_to_all, broadcast, reduce_scatter
 
 
 _ENABLED_VALUES = {"1", "true", "yes", "on"}
@@ -77,6 +77,13 @@ class TileXRVllmCollectivesAdapter:
             return None
         return self._call_or_fallback(
             lambda: reduce_scatter(input_, self.rank, self.world_size, self.install_prefix, dim=dim)
+        )
+
+    def broadcast(self, tensor, src: int = 0):
+        if self.should_fallback(tensor):
+            return None
+        return self._call_or_fallback(
+            lambda: broadcast(tensor, self.rank, self.world_size, self.install_prefix, root=src)
         )
 
     def all_to_all(
