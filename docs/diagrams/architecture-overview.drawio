@@ -7,14 +7,14 @@
       <mxGeometry x="40" y="10" width="980" height="30" as="geometry"/>
     </mxCell>
 
-    <!-- Band 1: Applications -->
-    <mxCell id="b1" value="Applications &amp; Integrations" style="swimlane;startSize=26;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;whiteSpace=wrap;" vertex="1" parent="1">
+    <!-- Band 1: Applications and Examples -->
+    <mxCell id="b1" value="Applications, Examples &amp; Integrations" style="swimlane;startSize=26;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;whiteSpace=wrap;" vertex="1" parent="1">
       <mxGeometry x="40" y="50" width="980" height="100" as="geometry"/>
     </mxCell>
     <mxCell id="b1a" value="vLLM-Ascend Integration&#10;(integrations/vllm_ascend)" style="rounded=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="b1">
       <mxGeometry x="30" y="40" width="280" height="48" as="geometry"/>
     </mxCell>
-    <mxCell id="b1b" value="MC2 Fused-Operator Users" style="rounded=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="b1">
+    <mxCell id="b1b" value="MC2 Fused-Operator Examples&#10;(examples/mc2, via ops-transformer)" style="rounded=1;whiteSpace=wrap;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;" vertex="1" parent="b1">
       <mxGeometry x="350" y="40" width="280" height="48" as="geometry"/>
     </mxCell>
     <mxCell id="b1c" value="Tests / Demos / Simulator" style="rounded=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="b1">
@@ -26,16 +26,13 @@
       <mxGeometry x="40" y="170" width="980" height="120" as="geometry"/>
     </mxCell>
     <mxCell id="b2a" value="libtile-comm.so&#10;Core Runtime: ranks, shared buffers,&#10;peer memory, CommArgs, DFX" style="rounded=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#6c8ebf;fontStyle=1;" vertex="1" parent="b2">
-      <mxGeometry x="30" y="38" width="280" height="68" as="geometry"/>
+      <mxGeometry x="30" y="38" width="300" height="68" as="geometry"/>
     </mxCell>
     <mxCell id="b2b" value="libtilexr-collectives.so&#10;(optional)&#10;AllGather / AllToAll" style="rounded=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="b2">
-      <mxGeometry x="330" y="38" width="200" height="68" as="geometry"/>
+      <mxGeometry x="350" y="38" width="300" height="68" as="geometry"/>
     </mxCell>
-    <mxCell id="b2c" value="libtilexr-ep.so&#10;MoE EP Dispatch&#10;MVP" style="rounded=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="b2">
-      <mxGeometry x="550" y="38" width="180" height="68" as="geometry"/>
-    </mxCell>
-    <mxCell id="b2d" value="MC2 Fused Operators&#10;all_gather_add /&#10;all_gather_matmul" style="rounded=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="b2">
-      <mxGeometry x="750" y="38" width="200" height="68" as="geometry"/>
+    <mxCell id="b2c" value="libtilexr-ep.so&#10;MoE EP Dispatch MVP" style="rounded=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="b2">
+      <mxGeometry x="670" y="38" width="300" height="68" as="geometry"/>
     </mxCell>
 
     <!-- Band 3: Public API + device headers -->

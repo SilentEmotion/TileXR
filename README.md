@@ -24,9 +24,9 @@ Instead of stalling every rank at coarse barriers, TileXR splits a phase into ti
 
 - **Core communication runtime**: `libtile-comm.so` initializes ranks, shared buffers, peer memory mappings, socket exchange, device `CommArgs`, and DFX state. It builds only against CANN runtime/ACL/driver APIs and TileXR-owned types — it does not include or link hcomm, HCCL, shmem, or ops-transformer.
 - **Optional TileXR collectives**: `libtilexr-collectives.so`, built only when `TILEXR_BUILD_COLLECTIVES=ON`, layers standalone `TileXRAllGather` and equal-size `TileXRAllToAll` APIs on top of `libtile-comm.so`.
-- **Standalone EP dispatch MVP**: `libtilexr-ep.so` and `libtilexr_ep_dispatch_kernel.so` provide a first TileXR-native MoE EP dispatch route under `src/ep`, independent from `src/mc2`, shmem, and UDMA.
+- **Standalone EP dispatch MVP**: `libtilexr-ep.so` and `libtilexr_ep_dispatch_kernel.so` provide a first TileXR-native MoE EP dispatch route under `src/ep`, independent from `examples/mc2`, shmem, and UDMA.
 - **Tile-level synchronization**: device-side flag regions and magic values support reusable fine-grained synchronization rounds.
-- **MC2 fused operators**: AllGather+Add and AllGather+MatMul examples under `src/mc2/`.
+- **MC2 fused-operator examples**: AllGather+Add and AllGather+MatMul examples under `examples/mc2/`, built through the ops-transformer flow (not part of the core runtime libraries).
 - **Registered-memory UDMA path**: host code registers ordinary `aclrtMalloc` device memory with `TileXRUDMARegister`; device kernels use `tilexr_udma.h` wrappers for put/get/signal.
 - **On-card SDMA transport**: an opt-in (`TILEXR_ENABLE_SDMA=1`) local GM-to-GM copy path. Host code queries it with `TileXRSDMAAvailable` / `TileXRGetSDMAWorkspaceDev`; device kernels use `tilexr_sdma.h` (`SDMACopyNbi`, `SDMAWait`). Separate from UDMA: SDMA is local to one device, UDMA targets registered remote memory.
 - **Operator simulator**: `op-simulator/` supports functional/performance simulation for selected AICore kernels without physical hardware.
@@ -141,8 +141,9 @@ TileXR/
 |   |   `-- sdma/             # On-card PTO SDMA local copy transport
 |   |-- collectives/          # Optional TileXR collectives library
 |   |-- ep/                   # Standalone TileXR EP dispatch MVP
-|   |-- include/              # Public C/C++ and device headers
-|   `-- mc2/                  # Fused collective operators
+|   `-- include/              # Public C/C++ and device headers
+|-- examples/                 # Example workloads built on the TileXR runtime
+|   `-- mc2/                  # Fused collective operator examples (via ops-transformer)
 |       |-- all_gather_add/
 |       |-- all_gather_matmul/
 |       `-- common/
@@ -212,7 +213,7 @@ Initial collectives APIs:
 - The MVP route uses `CommArgs::peerMems[]`, `TileXR::IPC_DATA_OFFSET`, and `SyncCollectives` for peer-memory communication. Each rank writes its own IPC window, peers read from that window after synchronization.
 - Shared EP window metadata is written through MTE/UB copies so peer ranks observe slot headers and assist tuples consistently.
 
-This EP path is intentionally independent from `src/mc2`, ops-transformer runtime helpers, shmem, and UDMA. A future route can add a UDMA backend with TileXR-registered receive windows while keeping the peer-memory path as fallback.
+This EP path is intentionally independent from `examples/mc2`, ops-transformer runtime helpers, shmem, and UDMA. A future route can add a UDMA backend with TileXR-registered receive windows while keeping the peer-memory path as fallback.
 
 ### Transports Overview
 
@@ -246,9 +247,9 @@ SDMA is a first-class local on-card GM-to-GM copy path, separate from UDMA. It i
 
 Enabled initialization is best-effort: if PTO SDMA headers or runtime resources are unavailable, communicator initialization continues without setting `ExtraFlag::SDMA`, and `SDMACopyNbi` returns event handle `0` while `SDMAWait` reports completion. See [docs/SDMA_TRANSPORT.md](docs/SDMA_TRANSPORT.md) for the full transport guide.
 
-### MC2 Operators
+### MC2 Operator Examples
 
-`src/mc2/` contains fused communication+compute examples following the ops-transformer host/tiling/kernel split:
+`examples/mc2/` contains fused communication+compute **examples** following the ops-transformer host/tiling/kernel split. They are built through `scripts/ops_build_run.sh` and are not part of the core runtime libraries:
 
 - `all_gather_add`: example AllGather plus element-wise Add, fixed shape and rank-size constraints.
 - `all_gather_matmul`: AllGather plus MatMul with aclnn API, graph integration, and tests.
@@ -266,7 +267,7 @@ Optional components:
 | Component | Version / Source | Used by | Notes |
 | --- | --- | --- | --- |
 | hcomm / HCCL | submodule / CANN communication stack | MC2 fused-operator examples and HCCL tests | Not included or linked by `src/comm` / `libtile-comm.so` |
-| ops-transformer | submodule | `src/mc2` operator build, packaging, and run scripts | Not needed when only compiling `libtile-comm.so` |
+| ops-transformer | submodule | `examples/mc2` operator build, packaging, and run scripts | Not needed when only compiling `libtile-comm.so` |
 | shmem | ignored checkout under `reference/shmem/` via `reference/download_shmem.sh` | Historical UDMA experiments and comparison examples | Not included or linked by current `src/comm` |
 
 ## UDMA Validation
